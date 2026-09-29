@@ -1,0 +1,1932 @@
+{
+  "name": "Plant2NoXAI",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8001/analyze",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        304,
+        208
+      ],
+      "id": "02f65a13-e0fc-4339-b002-69fad0957bc7",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": []
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        496
+      ],
+      "id": "6180186a-2f97-4c70-87ce-9af2e3776721",
+      "name": "HTTP Request1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Img",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "file",
+              "fieldType": "file",
+              "acceptFileTypes": "image/jpeg,image/png",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        48,
+        400
+      ],
+      "id": "2bbdb415-78bf-45a7-8243-32f78005fccb",
+      "name": "On form submission",
+      "webhookId": "fe04c669-a718-4e7b-b6a4-45d94b418e11"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        496,
+        400
+      ],
+      "id": "2dd111df-8ce2-4b3e-ae92-5de9ba964940",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-pro-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        512
+      ],
+      "id": "71ab44a1-3df4-45b5-a5d1-52d02ee6e464",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        720
+      ],
+      "id": "5d40eeaa-d1a8-4a47-a331-795696077eb8",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.openaiBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        1104
+      ],
+      "id": "737c60bb-3c36-453b-aeb3-5ced151db9f3",
+      "name": "HTTP Request OpenAI Vision",
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nfunction findText(obj) {\n  if (!obj) return \"\";\n\n  if (typeof obj.output_text === \"string\") {\n    return obj.output_text;\n  }\n\n  if (Array.isArray(obj.output)) {\n    const texts = [];\n\n    for (const out of obj.output) {\n      if (Array.isArray(out.content)) {\n        for (const part of out.content) {\n          if (part.type === \"output_text\" && part.text) {\n            texts.push(part.text);\n          }\n        }\n      }\n    }\n\n    if (texts.length) return texts.join(\"\\n\");\n  }\n\n  return \"\";\n}\n\nconst text = findText(item.json);\n\nconst cleaned = String(text || \"\")\n  .replace(/```json/g, \"\")\n  .replace(/```/g, \"\")\n  .trim();\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  parsed = {\n    visible_symptoms: \"\",\n    model_decision_explanation: \"\",\n    xai_alignment: \"\",\n    visual_support: \"\",\n    parse_error: true,\n    raw_response: text,\n  };\n}\n\nconst previousItems = $items(\"Build OpenAI Vision Body\");\nconst previous = previousItems?.[0]?.json || {};\n\nreturn [\n  {\n    json: {\n      ...previous,\n\n      model_provider: \"openai\",\n\n      visible_symptoms: parsed.visible_symptoms || \"\",\n      model_decision_explanation: parsed.model_decision_explanation || \"\",\n      xai_alignment: parsed.xai_alignment || \"\",\n      visual_support: parsed.visual_support || \"\",\n\n      openai_vision_raw_text: text,\n      openai_vision_parse_error: parsed.parse_error || false,\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        1104
+      ],
+      "id": "e3f9998c-f676-4695-9877-e5cf406a9a32",
+      "name": "Parse OpenAI Vision JSON"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst analyzeItem = items.find(item =>\n  item.json?.prediction !== undefined ||\n  item.json?.confidence_score !== undefined ||\n  item.json?.classifier ||\n  item.json?.xai_results\n);\n\nconst binaryItem = items.find(item => item.binary?.file);\n\nif (!analyzeItem) {\n  throw new Error(\"No classifier result found\");\n}\n\nif (!binaryItem) {\n  throw new Error(\"No original binary image found\");\n}\n\nconst data = analyzeItem.json;\n\nfunction firstNonEmpty(...values) {\n  for (const value of values) {\n    if (value !== undefined && value !== null && value !== \"\") return value;\n  }\n  return null;\n}\n\nconst gradcam = data.xai_results?.gradcam || {};\nconst lime = data.xai_results?.lime || {};\nconst shap = data.xai_results?.shap || {};\nconst deeplift = data.xai_results?.deeplift || {};\n\nconst summary = {\n  model_provider: \"openai\",\n\n  status: data.status || null,\n  mode: data.mode || \"cnn_only_no_xai\",\n\n  prediction: firstNonEmpty(\n    data.prediction,\n    data.classifier?.prediction,\n    gradcam.prediction,\n    lime.prediction,\n    shap.prediction,\n    deeplift.prediction\n  ),\n\n  confidence_score: firstNonEmpty(\n    data.confidence_score,\n    data.classifier?.confidence_score,\n    gradcam.confidence_score,\n    lime.confidence_score,\n    shap.confidence_score,\n    deeplift.confidence_score\n  ),\n\n  xai_condition: \"no_xai\",\n};\n\nconst originalBuffer = await this.helpers.getBinaryDataBuffer(\n  items.indexOf(binaryItem),\n  \"file\"\n);\n\nconst originalImageBase64 = originalBuffer.toString(\"base64\");\n\nconst originalMimeType =\n  binaryItem.binary.file.mimeType ||\n  binaryItem.binary.file.mime_type ||\n  \"image/jpeg\";\n\nconst prompt =\n  \"You are the vision-analysis stage of a plant disease classifier workflow.\\n\\n\" +\n\n  \"You are receiving:\\n\" +\n  \"The original uploaded plant leaf image.\\n\" +\n  \"The classifier prediction and classifier confidence.\\n\\n\" +\n\n  \"No XAI explanation images are provided in this condition.\\n\" +\n  \"Do not refer to Grad-CAM, LIME, SHAP, DeepLIFT, heatmaps, attribution maps, highlighted regions, or XAI alignment.\\n\\n\" +\n\n  \"Classifier result:\\n\" +\n  \"prediction=\" + summary.prediction + \"\\n\" +\n  \"confidence=\" + summary.confidence_score + \"\\n\\n\" +\n\n  \"Your job is only, and only, to describe the following:\\n\" +\n  \"The visible symptoms in the original leaf image.\\n\" +\n  \"Whether the visible image evidence appears visually consistent with the classifier prediction.\\n\\n\" +\n\n  \"The following are the field meanings in the json you will return, for which a format is provided below:\\n\" +\n  \"visible_symptoms: only the visible symptoms in the original leaf image.\\n\" +\n  \"model_decision_explanation: explain that no XAI outputs were provided, so the classifier's visual focus cannot be assessed; only image-level consistency with the classifier prediction can be discussed.\\n\" +\n  \"visual_support: low, moderate, or high visual support for the classifier prediction based only on the original image.\\n\\n\" +\n\n  \"Rules:\\n\" +\n  \"- Do not identify a disease.\\n\" +\n  \"- Do not suggest any treatments.\\n\" +\n  \"- Do not make any diagnostic hypotheses.\\n\" +\n  \"- Do not claim to understand the classifier's hidden internal reasoning.\\n\" +\n  \"- Do not say that the model definitely made the correct decision.\\n\" +\n  \"- Treat classifier confidence as model confidence, not certainty.\\n\" +\n  \"- Do not mention XAI methods or XAI images.\\n\" +\n  \"- Be concise.\\n\" +\n  \"- Return ONLY valid compact JSON.\\n\" +\n  \"- Do not wrap the answer in markdown.\\n\" +\n  \"- Do not include any text before or after the JSON object.\\n\" +\n  \"- Your first character must be { and your last character must be }.\\n\\n\" +\n\n  \"Return exactly this JSON:\\n\" +\n  \"{\\n\" +\n  \"  \\\"visible_symptoms\\\": \\\"\\\",\\n\" +\n  \"  \\\"model_decision_explanation\\\": \\\"\\\",\\n\" +\n  \"  \\\"visual_support\\\": \\\"low|moderate|high\\\"\\n\" +\n  \"}\";\n\nfunction toDataUrl(mimeType, base64) {\n  return `data:${mimeType || \"image/jpeg\"};base64,${base64}`;\n}\n\nconst content = [\n  {\n    type: \"input_text\",\n    text: prompt,\n  },\n  {\n    type: \"input_text\",\n    text: \"Image 1: Original uploaded plant leaf image.\",\n  },\n  {\n    type: \"input_image\",\n    image_url: toDataUrl(originalMimeType, originalImageBase64),\n    detail: \"auto\",\n  },\n];\n\nreturn [\n  {\n    json: {\n      ...summary,\n\n      xai_images_sent_to_openai: [],\n      xai_image_count_sent_to_openai: 0,\n\n      openaiBody: {\n        model: \"gpt-5.4\",\n        input: [\n          {\n            role: \"user\",\n            content,\n          },\n        ],\n\n        reasoning: {\n          effort: \"low\",\n        },\n\n        text: {\n          format: {\n            type: \"json_object\",\n          },\n          verbosity: \"low\",\n        },\n\n        max_output_tokens: 500,\n      },\n    },\n    binary: binaryItem.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        1104
+      ],
+      "id": "50216c84-ce1a-442a-b75e-b7617fe18f0a",
+      "name": "Build OpenAI Vision Body"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst analyzeItem = items.find(item =>\n  item.json?.prediction !== undefined ||\n  item.json?.confidence_score !== undefined ||\n  item.json?.classifier ||\n  item.json?.xai_results\n);\n\nconst binaryItem = items.find(item => item.binary?.file);\n\nif (!analyzeItem) {\n  throw new Error(\"No classifier result found\");\n}\n\nif (!binaryItem) {\n  throw new Error(\"No original binary image found\");\n}\n\nconst data = analyzeItem.json;\n\nfunction firstNonEmpty(...values) {\n  for (const value of values) {\n    if (value !== undefined && value !== null && value !== \"\") return value;\n  }\n  return null;\n}\n\nconst gradcam = data.xai_results?.gradcam || {};\nconst lime = data.xai_results?.lime || {};\nconst shap = data.xai_results?.shap || {};\nconst deeplift = data.xai_results?.deeplift || {};\n\nconst summary = {\n  model_provider: \"claude\",\n\n  status: data.status || null,\n  mode: data.mode || \"cnn_only_no_xai\",\n\n  prediction: firstNonEmpty(\n    data.prediction,\n    data.classifier?.prediction,\n    gradcam.prediction,\n    lime.prediction,\n    shap.prediction,\n    deeplift.prediction\n  ),\n\n  confidence_score: firstNonEmpty(\n    data.confidence_score,\n    data.classifier?.confidence_score,\n    gradcam.confidence_score,\n    lime.confidence_score,\n    shap.confidence_score,\n    deeplift.confidence_score\n  ),\n\n  xai_condition: \"no_xai\",\n};\n\nconst originalBuffer = await this.helpers.getBinaryDataBuffer(\n  items.indexOf(binaryItem),\n  \"file\"\n);\n\nconst originalImageBase64 = originalBuffer.toString(\"base64\");\n\nconst originalMimeType =\n  binaryItem.binary.file.mimeType ||\n  binaryItem.binary.file.mime_type ||\n  \"image/jpeg\";\n\nconst prompt =\n  \"You are the vision-analysis stage of a plant disease classifier workflow.\\n\\n\" +\n\n  \"You are receiving:\\n\" +\n  \"The original uploaded plant leaf image.\\n\" +\n  \"The classifier prediction and classifier confidence.\\n\\n\" +\n\n  \"No XAI explanation images are provided in this condition.\\n\" +\n  \"Do not refer to Grad-CAM, LIME, SHAP, DeepLIFT, heatmaps, attribution maps, highlighted regions, or XAI alignment.\\n\\n\" +\n\n  \"Classifier result:\\n\" +\n  \"prediction=\" + summary.prediction + \"\\n\" +\n  \"confidence=\" + summary.confidence_score + \"\\n\\n\" +\n\n  \"Your job is only, and only, to describe the following:\\n\" +\n  \"The visible symptoms in the original leaf image.\\n\" +\n  \"Whether the visible image evidence appears visually consistent with the classifier prediction.\\n\\n\" +\n\n  \"The following are the field meanings in the json you will return, for which a format is provided below:\\n\" +\n  \"visible_symptoms: only the visible symptoms in the original leaf image.\\n\" +\n  \"model_decision_explanation: explain that no XAI outputs were provided, so the classifier's visual focus cannot be assessed; only image-level consistency with the classifier prediction can be discussed.\\n\" +\n  \"visual_support: low, moderate, or high visual support for the classifier prediction based only on the original image.\\n\\n\" +\n\n  \"Rules:\\n\" +\n  \"- Do not identify a disease.\\n\" +\n  \"- Do not suggest any treatments.\\n\" +\n  \"- Do not make any diagnostic hypotheses.\\n\" +\n  \"- Do not claim to understand the classifier's hidden internal reasoning.\\n\" +\n  \"- Do not say that the model definitely made the correct decision.\\n\" +\n  \"- Treat classifier confidence as model confidence, not certainty.\\n\" +\n  \"- Do not mention XAI methods or XAI images.\\n\" +\n  \"- Be concise.\\n\" +\n  \"- Return ONLY valid compact JSON.\\n\" +\n  \"- Do not wrap the answer in markdown.\\n\" +\n  \"- Do not include any text before or after the JSON object.\\n\" +\n  \"- Your first character must be { and your last character must be }.\\n\\n\" +\n\n  \"Return exactly this JSON:\\n\" +\n  \"{\\n\" +\n  \"  \\\"visible_symptoms\\\": \\\"\\\",\\n\" +\n  \"  \\\"model_decision_explanation\\\": \\\"\\\",\\n\" +\n  \"  \\\"visual_support\\\": \\\"low|moderate|high\\\"\\n\" +\n  \"}\";\n\nconst content = [\n  {\n    type: \"text\",\n    text: prompt,\n  },\n  {\n    type: \"text\",\n    text: \"Image 1: Original uploaded plant leaf image.\",\n  },\n  {\n    type: \"image\",\n    source: {\n      type: \"base64\",\n      media_type: originalMimeType,\n      data: originalImageBase64,\n    },\n  },\n];\n\nreturn [\n  {\n    json: {\n      ...summary,\n\n      xai_images_sent_to_claude: [],\n      xai_image_count_sent_to_claude: 0,\n\n      claudeBody: {\n        model: \"claude-sonnet-4-6\",\n        max_tokens: 600,\n        messages: [\n          {\n            role: \"user\",\n            content,\n          },\n        ],\n      },\n    },\n    binary: binaryItem.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        -112
+      ],
+      "id": "ae4b97c2-accf-4a1c-ad20-3f97a1d2542b",
+      "name": "Build Claude Vision Body"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "anthropicApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.claudeBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        -112
+      ],
+      "id": "2f66914f-5caa-4c03-97d2-3a4d83d54380",
+      "name": "HTTP Request Claude Vision",
+      "credentials": {
+        "anthropicApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nfunction findText(obj) {\n  if (!obj) return \"\";\n\n  if (Array.isArray(obj.content)) {\n    const texts = obj.content\n      .filter(part => part.type === \"text\" && part.text)\n      .map(part => part.text);\n\n    return texts.join(\"\\n\").trim();\n  }\n\n  if (typeof obj.text === \"string\") {\n    return obj.text.trim();\n  }\n\n  if (typeof obj.output === \"string\") {\n    return obj.output.trim();\n  }\n\n  return \"\";\n}\n\nfunction extractJsonObject(text) {\n  const value = String(text || \"\")\n    .replace(/```json/g, \"\")\n    .replace(/```/g, \"\")\n    .trim();\n\n  const start = value.indexOf(\"{\");\n  const end = value.lastIndexOf(\"}\");\n\n  if (start === -1 || end === -1 || end <= start) {\n    return value;\n  }\n\n  return value.slice(start, end + 1);\n}\n\nconst text = findText(item.json);\nconst cleaned = extractJsonObject(text);\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  parsed = {\n    visible_symptoms: \"\",\n    model_decision_explanation: \"\",\n    visual_support: \"\",\n    parse_error: true,\n    raw_response: text,\n    parse_error_message: error.message,\n  };\n}\n\nconst previousItems = $items(\"Build Claude Vision Body\");\nconst previous = previousItems?.[0]?.json || {};\n\nreturn [\n  {\n    json: {\n      ...previous,\n\n      model_provider: \"claude\",\n\n      visible_symptoms: parsed.visible_symptoms || \"\",\n      model_decision_explanation: parsed.model_decision_explanation || \"\",\n      visual_support: parsed.visual_support || \"\",\n\n      claude_vision_raw_text: text,\n      claude_vision_parse_error: parsed.parse_error || false,\n      claude_vision_parse_error_message: parsed.parse_error_message || \"\",\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        -112
+      ],
+      "id": "e5cbfe74-417d-46e5-8e0c-1890beee0cb4",
+      "name": "Parse Claude Vision JSON"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing a concise final explanation for a plant disease image analysis workflow.\n\nYou have:\nA Convolutional Neural Network classifier prediction and confidence score.\n A Claude vision-model interpretation of the original leaf image.\nAccess to a plant disease diagnostic field guide through the plant_disease_guide tool.\n\nImportant Information:\nYou do not directly inspect the images in this stage.\nUse the visible symptoms as your visual evidence.\nBefore writing the final answer, you MUST call plant_disease_guide using a symptom-based query built from visible_symptoms to support you in your response.\nDo not answer before using the tool.\n\nInput:\nclassifier_prediction={{ $json.prediction }}\nclassifier_confidence={{ $json.confidence_score }}\nvisible_symptoms={{ $json.visible_symptoms }}\nmodel_decision_explanation={{ $json.model_decision_explanation }}\n\nTool query guidance:\nQuery plant_disease_guide using terms from visible_symptoms.\n\nFor summary write a short final explanation that describes and connects:\n- The classifier prediction and confidence.\n- The visible symptoms described by the vision model.\n- The retrieved field-guide information.\n\n\nRules:\n- Be concise and avoid repetition.\n- Keep answers to one sentence where possible. For the summary, model_decision_explanation and recommended_next_steps parts 2 sentences, or 3 if really neccesary is acceptable.\n- Return only valid JSON.\n- Do not wrap the answer in markdown.\n- Do not include any text before or after the JSON object.\n- Your first character must be { and your last character must be }.\n- Mention the parts where the field guide query helped answer.\n- Do not say the model is definitely correct.\n- Do not say the evidence confirms disease, illness, infection, diagnosis, or model correctness.\n- The top three diagnoses are possibilities, not final diagnoses.\n- If treatment is mentioned, justify it with a reason tied to the symptoms and the field guide tool.\n- Keep the final answer short.\n- Recommended next steps should be specific to the visible symptoms when possible.\n- Include concrete and practical action steps.\n- Do not make recommended_next_steps only to consult an expert; expert consultation can be included, but at least one concrete and practical step must also be included.\n\nReturn this exact JSON structure:\n{\n  \"summary\": \"\",\n  \"model_decision_explanation\": \"\",\n  \"top_three_possible_diagnoses\": [\n    {\n      \"rank\": 1,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 2,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 3,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    }\n  ],\n  \"limitations\": \"\",\n  \"recommended_next_steps\": \"\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1872,
+        -320
+      ],
+      "id": "f4fad186-7c95-4132-9b2d-815d16286ee6",
+      "name": "Claude AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "maxTokensToSample": 1600
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1840,
+        -96
+      ],
+      "id": "36ae80d1-db99-4d90-a8a5-cade91376a71",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        112
+      ],
+      "id": "e9e79a73-acaa-4dbb-9eeb-3f303d4b6621",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nconst baseItems = $items(\"Add Run Metadata\");\nconst baseMeta = baseItems?.[0]?.json || {};\n\nconst previousItems = $items(\"Parse Claude Vision JSON\");\nconst previous = previousItems?.[0]?.json || {};\n\nlet raw = item.json.output;\nlet data;\n\nconst visionModelDecisionExplanation =\n  previous.model_decision_explanation ||\n  item.json.model_decision_explanation ||\n  \"\";\n\nfunction escapeHtml(value) {\n  return String(value ?? \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nfunction extractJsonObject(text) {\n  const value = String(text || \"\")\n    .replace(/```json/g, \"\")\n    .replace(/```/g, \"\")\n    .trim();\n\n  const start = value.indexOf(\"{\");\n  const end = value.lastIndexOf(\"}\");\n\n  if (start === -1 || end === -1 || end <= start) {\n    return value;\n  }\n\n  return value.slice(start, end + 1);\n}\n\nfunction parsePossiblyWrappedJson(value) {\n  if (typeof value === \"object\" && value !== null) {\n    return value;\n  }\n\n  const candidate = extractJsonObject(value);\n  let parsed = JSON.parse(candidate);\n\n  if (typeof parsed === \"string\") {\n    parsed = JSON.parse(extractJsonObject(parsed));\n  }\n\n  return parsed;\n}\n\nfunction stripHeavyFields(obj) {\n  const clean = { ...(obj || {}) };\n\n  delete clean.xai_results;\n  delete clean.coordinates;\n  delete clean.coordinate_count;\n  delete clean.affected_coordinates;\n  delete clean.coords;\n  delete clean.raw_coordinates;\n  delete clean.xai_support;\n\n  return clean;\n}\n\ntry {\n  data = parsePossiblyWrappedJson(raw);\n} catch (error) {\n  const safeRaw = String(raw || \"\");\n\n  return [\n    {\n      json: {\n        ...stripHeavyFields(baseMeta),\n        ...stripHeavyFields(previous),\n        ...stripHeavyFields(item.json),\n\n        model_provider: \"claude\",\n\n        readable_text: \"Could not parse AI response.\\n\\nRaw response:\\n\" + safeRaw,\n        readable_html: `<pre>${escapeHtml(safeRaw)}</pre>`,\n\n        parsed_json: null,\n        parse_error: true,\n        parse_error_message: error.message,\n\n        vision_model_decision_explanation: visionModelDecisionExplanation,\n      },\n      binary: item.binary,\n    },\n  ];\n}\n\nconst diagnoses = Array.isArray(data.top_three_possible_diagnoses)\n  ? data.top_three_possible_diagnoses\n  : [];\n\nfunction valueOrFallback(value, fallback = \"Not available\") {\n  if (value === undefined || value === null || value === \"\") return fallback;\n  return String(value);\n}\n\nconst diagnosisText =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = valueOrFallback(d.rank, index + 1);\n          const name = valueOrFallback(d.possible_diagnosis);\n          const confidence = valueOrFallback(d.confidence_level);\n          const reason = valueOrFallback(d.reason);\n          const caution = valueOrFallback(d.caution);\n\n          return `${rank}. ${name} (${confidence})\n   Reason: ${reason}\n   Caution: ${caution}`;\n        })\n        .join(\"\\n\\n\")\n    : \"Not available\";\n\nconst diagnosisHtml =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = escapeHtml(valueOrFallback(d.rank, index + 1));\n          const name = escapeHtml(valueOrFallback(d.possible_diagnosis));\n          const confidence = escapeHtml(valueOrFallback(d.confidence_level));\n          const reason = escapeHtml(valueOrFallback(d.reason));\n          const caution = escapeHtml(valueOrFallback(d.caution));\n\n          return `\n            <li style=\"margin-bottom: 12px;\">\n              <strong>${rank}. ${name}</strong>\n              <em>(${confidence})</em><br>\n              <strong>Reason:</strong> ${reason}<br>\n              <strong>Caution:</strong> ${caution}\n            </li>\n          `;\n        })\n        .join(\"\")\n    : `<li>Not available</li>`;\n\nconst readableText = `Plant Analysis Result\n\nSummary:\n${valueOrFallback(data.summary)}\n\nModel Decision Explanation:\n${valueOrFallback(data.model_decision_explanation)}\n\nTop Possible Diagnoses:\n${diagnosisText}\n\nLimitations:\n${valueOrFallback(data.limitations)}\n\nRecommended Next Steps:\n${valueOrFallback(data.recommended_next_steps)}`;\n\nconst readableHtml = `\n<div style=\"font-family: Arial, sans-serif; line-height: 1.5; max-width: 800px;\">\n  <h2>Plant Analysis Result</h2>\n\n  <h3>Summary</h3>\n  <p>${escapeHtml(valueOrFallback(data.summary))}</p>\n\n  <h3>Model Decision Explanation</h3>\n  <p>${escapeHtml(valueOrFallback(data.model_decision_explanation))}</p>\n\n  <h3>Top Possible Diagnoses</h3>\n  <ol>\n    ${diagnosisHtml}\n  </ol>\n\n  <h3>Limitations</h3>\n  <p>${escapeHtml(valueOrFallback(data.limitations))}</p>\n\n  <h3>Recommended Next Steps</h3>\n  <p>${escapeHtml(valueOrFallback(data.recommended_next_steps))}</p>\n</div>\n`;\n\ndelete data.xai_support;\n\nreturn [\n  {\n    json: {\n      ...stripHeavyFields(baseMeta),\n      ...stripHeavyFields(previous),\n      ...stripHeavyFields(item.json),\n      ...stripHeavyFields(data),\n\n      model_provider: \"claude\",\n\n      vision_model_decision_explanation: visionModelDecisionExplanation,\n\n      readable_text: readableText,\n      readable_html: readableHtml,\n\n      parsed_json: stripHeavyFields(data),\n      parse_error: false,\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        -112
+      ],
+      "id": "614e6195-1194-4991-a6ae-4fee1453d6e4",
+      "name": "Format Claude Final Response"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing a concise final explanation for a plant disease image analysis workflow.\n\nYou have:\nA Convolutional Neural Network classifier prediction and confidence score.\n A OpenAI vision-model interpretation of the original leaf image.\nAccess to a plant disease diagnostic field guide through the plant_disease_guide2 tool.\n\nImportant Information:\nYou do not directly inspect the images in this stage.\nUse the visible symptoms as your visual evidence.\nBefore writing the final answer, you MUST call plant_disease_guide2 using a symptom-based query built from visible_symptoms to support you in your response.\nDo not answer before using the tool.\n\nInput:\nclassifier_prediction={{ $json.prediction }}\nclassifier_confidence={{ $json.confidence_score }}\nvisible_symptoms={{ $json.visible_symptoms }}\nmodel_decision_explanation={{ $json.model_decision_explanation }}\n\nTool query guidance:\nQuery plant_disease_guide2 using terms from visible_symptoms.\n\nFor summary write a short final explanation that describes and connects:\n- The classifier prediction and confidence.\n- The visible symptoms described by the vision model.\n- The retrieved field-guide information.\n\n\nRules:\n- Be concise and avoid repetition.\n- Keep answers to one sentence where possible. For the summary, model_decision_explanation and recommended_next_steps parts 2 sentences, or 3 if really neccesary is acceptable.\n- Return only valid JSON.\n- Do not wrap the answer in markdown.\n- Do not include any text before or after the JSON object.\n- Your first character must be { and your last character must be }.\n- Mention the parts where the field guide query helped answer.\n- Do not say the model is definitely correct.\n- Do not say the evidence confirms disease, illness, infection, diagnosis, or model correctness.\n- The top three diagnoses are possibilities, not final diagnoses.\n- If treatment is mentioned, justify it with a reason tied to the symptoms and the field guide tool.\n- Keep the final answer short.\n- Recommended next steps should be specific to the visible symptoms when possible.\n- Include concrete and practical action steps.\n- Do not make recommended_next_steps only to consult an expert; expert consultation can be included, but at least one concrete and practical step must also be included.\n\nReturn this exact JSON structure:\n{\n  \"summary\": \"\",\n  \"model_decision_explanation\": \"\",\n  \"top_three_possible_diagnoses\": [\n    {\n      \"rank\": 1,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 2,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 3,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    }\n  ],\n  \"limitations\": \"\",\n  \"recommended_next_steps\": \"\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1872,
+        1136
+      ],
+      "id": "b76c0733-fc95-4f91-bf5e-32f735c4179a",
+      "name": "OpenAI AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4"
+        },
+        "builtInTools": {},
+        "options": {
+          "reasoningEffort": "low"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1840,
+        1328
+      ],
+      "id": "68c52a1f-37e3-4e0a-899a-e3c67f313a72",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-embedding-001"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        1536
+      ],
+      "id": "14beb1c1-69d6-4514-8afd-2c193ed08233",
+      "name": "Embeddings Google Gemini2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nconst baseItems = $items(\"Add Run Metadata\");\nconst baseMeta = baseItems?.[0]?.json || {};\n\nconst previousItems = $items(\"Parse OpenAI Vision JSON\");\nconst previous = previousItems?.[0]?.json || {};\n\nlet raw = item.json.output;\nlet data;\n\nconst visionModelDecisionExplanation =\n  previous.model_decision_explanation ||\n  item.json.model_decision_explanation ||\n  \"\";\n\nfunction escapeHtml(value) {\n  return String(value ?? \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nfunction extractJsonObject(text) {\n  const value = String(text || \"\")\n    .replace(/```json/g, \"\")\n    .replace(/```/g, \"\")\n    .trim();\n\n  const start = value.indexOf(\"{\");\n  const end = value.lastIndexOf(\"}\");\n\n  if (start === -1 || end === -1 || end <= start) {\n    return value;\n  }\n\n  return value.slice(start, end + 1);\n}\n\nfunction parsePossiblyWrappedJson(value) {\n  if (typeof value === \"object\" && value !== null) {\n    return value;\n  }\n\n  const candidate = extractJsonObject(value);\n  let parsed = JSON.parse(candidate);\n\n  if (typeof parsed === \"string\") {\n    parsed = JSON.parse(extractJsonObject(parsed));\n  }\n\n  return parsed;\n}\n\nfunction stripHeavyFields(obj) {\n  const clean = { ...(obj || {}) };\n\n  delete clean.xai_results;\n  delete clean.coordinates;\n  delete clean.coordinate_count;\n  delete clean.affected_coordinates;\n  delete clean.coords;\n  delete clean.raw_coordinates;\n  delete clean.xai_support;\n\n  return clean;\n}\n\ntry {\n  data = parsePossiblyWrappedJson(raw);\n} catch (error) {\n  const safeRaw = String(raw || \"\");\n\n  return [\n    {\n      json: {\n        ...stripHeavyFields(baseMeta),\n        ...stripHeavyFields(previous),\n        ...stripHeavyFields(item.json),\n\n        model_provider: \"openai\",\n\n        readable_text: \"Could not parse AI response.\\n\\nRaw response:\\n\" + safeRaw,\n        readable_html: `<pre>${escapeHtml(safeRaw)}</pre>`,\n\n        parsed_json: null,\n        parse_error: true,\n        parse_error_message: error.message,\n\n        vision_model_decision_explanation: visionModelDecisionExplanation,\n      },\n      binary: item.binary,\n    },\n  ];\n}\n\nconst diagnoses = Array.isArray(data.top_three_possible_diagnoses)\n  ? data.top_three_possible_diagnoses\n  : [];\n\nfunction valueOrFallback(value, fallback = \"Not available\") {\n  if (value === undefined || value === null || value === \"\") return fallback;\n  return String(value);\n}\n\nconst diagnosisText =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = valueOrFallback(d.rank, index + 1);\n          const name = valueOrFallback(d.possible_diagnosis);\n          const confidence = valueOrFallback(d.confidence_level);\n          const reason = valueOrFallback(d.reason);\n          const caution = valueOrFallback(d.caution);\n\n          return `${rank}. ${name} (${confidence})\n   Reason: ${reason}\n   Caution: ${caution}`;\n        })\n        .join(\"\\n\\n\")\n    : \"Not available\";\n\nconst diagnosisHtml =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = escapeHtml(valueOrFallback(d.rank, index + 1));\n          const name = escapeHtml(valueOrFallback(d.possible_diagnosis));\n          const confidence = escapeHtml(valueOrFallback(d.confidence_level));\n          const reason = escapeHtml(valueOrFallback(d.reason));\n          const caution = escapeHtml(valueOrFallback(d.caution));\n\n          return `\n            <li style=\"margin-bottom: 12px;\">\n              <strong>${rank}. ${name}</strong>\n              <em>(${confidence})</em><br>\n              <strong>Reason:</strong> ${reason}<br>\n              <strong>Caution:</strong> ${caution}\n            </li>\n          `;\n        })\n        .join(\"\")\n    : `<li>Not available</li>`;\n\nconst readableText = `Plant Analysis Result\n\nSummary:\n${valueOrFallback(data.summary)}\n\nModel Decision Explanation:\n${valueOrFallback(data.model_decision_explanation)}\n\nTop Possible Diagnoses:\n${diagnosisText}\n\nLimitations:\n${valueOrFallback(data.limitations)}\n\nRecommended Next Steps:\n${valueOrFallback(data.recommended_next_steps)}`;\n\nconst readableHtml = `\n<div style=\"font-family: Arial, sans-serif; line-height: 1.5; max-width: 800px;\">\n  <h2>Plant Analysis Result</h2>\n\n  <h3>Summary</h3>\n  <p>${escapeHtml(valueOrFallback(data.summary))}</p>\n\n  <h3>Model Decision Explanation</h3>\n  <p>${escapeHtml(valueOrFallback(data.model_decision_explanation))}</p>\n\n  <h3>Top Possible Diagnoses</h3>\n  <ol>\n    ${diagnosisHtml}\n  </ol>\n\n  <h3>Limitations</h3>\n  <p>${escapeHtml(valueOrFallback(data.limitations))}</p>\n\n  <h3>Recommended Next Steps</h3>\n  <p>${escapeHtml(valueOrFallback(data.recommended_next_steps))}</p>\n</div>\n`;\n\ndelete data.xai_support;\n\nreturn [\n  {\n    json: {\n      ...stripHeavyFields(baseMeta),\n      ...stripHeavyFields(previous),\n      ...stripHeavyFields(item.json),\n      ...stripHeavyFields(data),\n\n      model_provider: \"openai\",\n\n      vision_model_decision_explanation: visionModelDecisionExplanation,\n\n      readable_text: readableText,\n      readable_html: readableHtml,\n\n      parsed_json: stripHeavyFields(data),\n      parse_error: false,\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        1104
+      ],
+      "id": "c9150adb-fff6-454f-b562-7f172151b61d",
+      "name": "Format OpenAI Final Response"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool before writing the final answer. Query it with the visible symptoms, such as leaf spots, chlorosis, necrosis, lesions, blight, yellowing, or margin damage, to retrieve plant disease diagnostic guidance, and make your hypothesis towards specific diseases with this guidance.",
+        "memoryKey": {
+          "__rl": true,
+          "value": "plant_disease_guide",
+          "mode": "list",
+          "cachedResultName": "plant_disease_guide"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        1968,
+        512
+      ],
+      "id": "074c36b0-4e7f-431a-bc82-535529d6eba6",
+      "name": "plant_disease_guide1"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool before writing the final answer. Query it with the visible symptoms, such as leaf spots, chlorosis, necrosis, lesions, blight, yellowing, or margin damage, to retrieve plant disease diagnostic guidance, and make your hypothesis towards specific diseases with this guidance.",
+        "memoryKey": {
+          "__rl": true,
+          "value": "plant_disease_guide",
+          "mode": "list",
+          "cachedResultName": "plant_disease_guide"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        1968,
+        1328
+      ],
+      "id": "81c8d3cc-926c-411a-908d-c74e8a92046a",
+      "name": "plant_disease_guide2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst analyzeItem = items.find(item =>\n  item.json?.prediction !== undefined ||\n  item.json?.confidence_score !== undefined ||\n  item.json?.classifier ||\n  item.json?.xai_results\n);\n\nconst binaryItem = items.find(item => item.binary?.file);\n\nif (!analyzeItem) {\n  throw new Error(\"No classifier result found\");\n}\n\nif (!binaryItem) {\n  throw new Error(\"No original binary image found\");\n}\n\nfunction getOriginalFileName(binaryFile) {\n  return (\n    binaryFile.fileName ||\n    binaryFile.filename ||\n    binaryFile.originalFilename ||\n    binaryFile.name ||\n    \"unknown_image\"\n  );\n}\n\nfunction cleanFileNameForDrive(name) {\n  const withoutPath = String(name || \"unknown_image\")\n    .split(\"\\\\\")\n    .pop()\n    .split(\"/\")\n    .pop();\n\n  return withoutPath\n    .replace(/[<>:\"/\\\\|?*\\x00-\\x1F]+/g, \"_\")\n    .replace(/\\s+/g, \"_\")\n    .replace(/_+/g, \"_\")\n    .replace(/^_+|_+$/g, \"\")\n    .slice(0, 140) || \"unknown_image\";\n}\n\nconst originalFileName = getOriginalFileName(binaryItem.binary.file);\nconst safeImageName = cleanFileNameForDrive(originalFileName);\n\nconst runTimestamp = new Date().toISOString();\nconst runId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;\n\nreturn [\n  {\n    json: {\n      ...analyzeItem.json,\n\n      run_id: runId,\n      run_timestamp: runTimestamp,\n\n      image_name: originalFileName,\n      original_image_name: originalFileName,\n      safe_image_name: safeImageName,\n    },\n    binary: binaryItem.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        496,
+        624
+      ],
+      "id": "52474c59-57e2-4bc9-90c6-4b969a15c02f",
+      "name": "Add Run Metadata"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst sourceItem = items.find(item => item.binary?.file) || items[0];\n\nif (!sourceItem?.binary?.file) {\n  throw new Error(\"No original binary file found\");\n}\n\nconst sourceJson = { ...sourceItem.json };\nconst sourceBinary = { ...sourceItem.binary };\n\nfunction getOriginalFileName(binaryFile) {\n  return (\n    sourceJson.image_name ||\n    sourceJson.original_image_name ||\n    binaryFile.fileName ||\n    binaryFile.filename ||\n    binaryFile.originalFilename ||\n    binaryFile.name ||\n    \"unknown_image\"\n  );\n}\n\nfunction cleanFileNameForDrive(name) {\n  const withoutPath = String(name || \"unknown_image\")\n    .split(\"\\\\\")\n    .pop()\n    .split(\"/\")\n    .pop();\n\n  return withoutPath\n    .replace(/[<>:\"/\\\\|?*\\x00-\\x1F]+/g, \"_\")\n    .replace(/\\s+/g, \"_\")\n    .replace(/_+/g, \"_\")\n    .replace(/^_+|_+$/g, \"\")\n    .slice(0, 140) || \"unknown_image\";\n}\n\nconst originalFileName = getOriginalFileName(sourceBinary.file);\n\nconst safeImageName =\n  sourceJson.safe_image_name ||\n  cleanFileNameForDrive(originalFileName);\n\nconst runId =\n  sourceJson.run_id ||\n  `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;\n\nconst runTimestamp =\n  sourceJson.run_timestamp ||\n  new Date().toISOString();\n\nconst originalExtension =\n  sourceBinary.file.fileExtension ||\n  sourceBinary.file.fileName?.split(\".\").pop() ||\n  \"jpg\";\n\nconst originalDriveFileName = `${runId}_${safeImageName}_original.${originalExtension}`;\n\nconst prediction =\n  sourceJson.prediction ||\n  sourceJson.classifier?.prediction ||\n  sourceJson.xai_results?.gradcam?.prediction ||\n  sourceJson.xai_results?.lime?.prediction ||\n  sourceJson.xai_results?.shap?.prediction ||\n  sourceJson.xai_results?.deeplift?.prediction ||\n  null;\n\nconst confidence_score =\n  sourceJson.confidence_score ||\n  sourceJson.classifier?.confidence_score ||\n  sourceJson.xai_results?.gradcam?.confidence_score ||\n  sourceJson.xai_results?.lime?.confidence_score ||\n  sourceJson.xai_results?.shap?.confidence_score ||\n  sourceJson.xai_results?.deeplift?.confidence_score ||\n  null;\n\nreturn [\n  {\n    json: {\n      run_id: runId,\n      run_timestamp: runTimestamp,\n\n      image_name: sourceJson.image_name || sourceJson.original_image_name || originalFileName,\n      original_image_name: sourceJson.original_image_name || sourceJson.image_name || originalFileName,\n      safe_image_name: safeImageName,\n\n      status: sourceJson.status || null,\n      mode: sourceJson.mode || \"cnn_only_no_xai\",\n\n      prediction,\n      confidence_score,\n\n      upload_key: \"original_image_drive_url\",\n      binary_key: \"file\",\n      drive_filename: originalDriveFileName,\n    },\n    binary: {\n      data: {\n        ...sourceBinary.file,\n        fileName: originalDriveFileName,\n      },\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        880
+      ],
+      "id": "e30260d6-a2f8-4b00-a639-0dc9db975e88",
+      "name": "Prepare Drive Image Uploads"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2880,
+        208
+      ],
+      "id": "73df2de1-258d-43b5-9bf8-1a460aa64f8a",
+      "name": "Merge Claude Gemini Outputs"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3072,
+        816
+      ],
+      "id": "76005443-a292-442d-be3f-11366f7af9e0",
+      "name": "Merge All LLM Outputs"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c62dfdee-763a-4694-bf44-85be65fbc7cb",
+              "leftValue": "={{ $json.sheet_target }}",
+              "rightValue": "summary",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": "={{ false }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3568,
+        704
+      ],
+      "id": "9decc3f6-8974-4ab6-875f-df76dee1b14a",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "llm_run_logs_summary",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "run_id",
+              "displayName": "run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_name",
+              "displayName": "image_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "original_image_drive_url",
+              "displayName": "original_image_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gradcam_drive_url",
+              "displayName": "gradcam_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lime_drive_url",
+              "displayName": "lime_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "shap_inpaint_drive_url",
+              "displayName": "shap_inpaint_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "shap_blur_drive_url",
+              "displayName": "shap_blur_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "deeplift_drive_url",
+              "displayName": "deeplift_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "classifier_prediction",
+              "displayName": "classifier_prediction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "classifier_confidence",
+              "displayName": "classifier_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_summary",
+              "displayName": "claude_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_xai_support",
+              "displayName": "claude_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_1",
+              "displayName": "claude_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_2",
+              "displayName": "claude_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_3",
+              "displayName": "claude_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_next_steps",
+              "displayName": "claude_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_summary",
+              "displayName": "gemini_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_xai_support",
+              "displayName": "gemini_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_1",
+              "displayName": "gemini_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_2",
+              "displayName": "gemini_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_3",
+              "displayName": "gemini_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_next_steps",
+              "displayName": "gemini_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_summary",
+              "displayName": "openai_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_xai_support",
+              "displayName": "openai_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_1",
+              "displayName": "openai_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_2",
+              "displayName": "openai_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_3",
+              "displayName": "openai_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_next_steps",
+              "displayName": "openai_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3776,
+        608
+      ],
+      "id": "add000ad-4fef-48d9-a3cd-accb957adebe",
+      "name": "Append Summary Log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "llm_full_run_logs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "run_id",
+              "displayName": "run_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_name",
+              "displayName": "image_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "original_image_drive_url",
+              "displayName": "original_image_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gradcam_drive_url",
+              "displayName": "gradcam_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "lime_drive_url",
+              "displayName": "lime_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "shap_inpaint_drive_url",
+              "displayName": "shap_inpaint_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "shap_blur_drive_url",
+              "displayName": "shap_blur_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "deeplift_drive_url",
+              "displayName": "deeplift_drive_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "classifier_prediction",
+              "displayName": "classifier_prediction",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "classifier_confidence",
+              "displayName": "classifier_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_final_summary",
+              "displayName": "claude_final_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_final_model_decision_explanation",
+              "displayName": "claude_final_model_decision_explanation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_final_xai_support",
+              "displayName": "claude_final_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_1",
+              "displayName": "claude_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_1_reason",
+              "displayName": "claude_diagnosis_1_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_2",
+              "displayName": "claude_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_2_reason",
+              "displayName": "claude_diagnosis_2_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_3",
+              "displayName": "claude_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_diagnosis_3_reason",
+              "displayName": "claude_diagnosis_3_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_limitations",
+              "displayName": "claude_limitations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "claude_recommended_next_steps",
+              "displayName": "claude_recommended_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_final_summary",
+              "displayName": "gemini_final_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_final_model_decision_explanation",
+              "displayName": "gemini_final_model_decision_explanation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_final_xai_support",
+              "displayName": "gemini_final_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_1",
+              "displayName": "gemini_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_1_reason",
+              "displayName": "gemini_diagnosis_1_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_2",
+              "displayName": "gemini_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_2_reason",
+              "displayName": "gemini_diagnosis_2_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_3",
+              "displayName": "gemini_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_diagnosis_3_reason",
+              "displayName": "gemini_diagnosis_3_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_limitations",
+              "displayName": "gemini_limitations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "gemini_recommended_next_steps",
+              "displayName": "gemini_recommended_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_final_summary",
+              "displayName": "openai_final_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_final_model_decision_explanation",
+              "displayName": "openai_final_model_decision_explanation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_final_xai_support",
+              "displayName": "openai_final_xai_support",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_1",
+              "displayName": "openai_diagnosis_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_1_reason",
+              "displayName": "openai_diagnosis_1_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_2",
+              "displayName": "openai_diagnosis_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_2_reason",
+              "displayName": "openai_diagnosis_2_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_3",
+              "displayName": "openai_diagnosis_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_diagnosis_3_reason",
+              "displayName": "openai_diagnosis_3_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_limitations",
+              "displayName": "openai_limitations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "openai_recommended_next_steps",
+              "displayName": "openai_recommended_next_steps",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3776,
+        800
+      ],
+      "id": "1d79898e-ceeb-4c1c-a4bb-1cda68de02a2",
+      "name": "Append Full Log",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.drive_filename }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1wUx2I_u-KXXQbyak8Es59DnmnU8eWlPM",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        832
+      ],
+      "id": "1761b7d7-fb17-48d7-a1b9-0e16b212c5a0",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadedItems = $input.all();\nconst sourceItems = $items(\"Prepare Drive Image Uploads\");\n\nconst result = {};\n\nfunction getDriveUrl(uploadedJson) {\n  const id = uploadedJson.id || uploadedJson.fileId || uploadedJson.file_id;\n\n  return (\n    uploadedJson.webViewLink ||\n    uploadedJson.webContentLink ||\n    uploadedJson.webUrl ||\n    uploadedJson.url ||\n    (id ? `https://drive.google.com/file/d/${id}/view` : \"\")\n  );\n}\n\nfor (let i = 0; i < uploadedItems.length; i++) {\n  const uploaded = uploadedItems[i].json || {};\n  const source = sourceItems[i]?.json || {};\n\n  const key = source.upload_key;\n  if (!key) continue;\n\n  result[key] = getDriveUrl(uploaded);\n}\n\nreturn [\n  {\n    json: result,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3056,
+        1072
+      ],
+      "id": "980140c3-2d1c-4c3e-9a7f-9dce8f9dcc52",
+      "name": "Collect Drive URLs"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3264,
+        896
+      ],
+      "id": "d8895a78-f234-4885-9a53-32cc93256d12",
+      "name": "Merge LLM Outputs And Drive URLs"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst analyzeItem = items.find(item =>\n  item.json?.prediction !== undefined ||\n  item.json?.confidence_score !== undefined ||\n  item.json?.classifier ||\n  item.json?.xai_results\n);\n\nconst binaryItem = items.find(item => item.binary?.file);\n\nif (!analyzeItem) {\n  throw new Error(\"No classifier result found\");\n}\n\nif (!binaryItem) {\n  throw new Error(\"No original binary image found\");\n}\n\nconst data = analyzeItem.json;\n\nfunction firstNonEmpty(...values) {\n  for (const value of values) {\n    if (value !== undefined && value !== null && value !== \"\") return value;\n  }\n  return null;\n}\n\nconst gradcam = data.xai_results?.gradcam || {};\nconst lime = data.xai_results?.lime || {};\nconst shap = data.xai_results?.shap || {};\nconst deeplift = data.xai_results?.deeplift || {};\n\nconst summary = {\n  model_provider: \"gemini\",\n\n  status: data.status || null,\n  mode: data.mode || \"cnn_only_no_xai\",\n\n  prediction: firstNonEmpty(\n    data.prediction,\n    data.classifier?.prediction,\n    gradcam.prediction,\n    lime.prediction,\n    shap.prediction,\n    deeplift.prediction\n  ),\n\n  confidence_score: firstNonEmpty(\n    data.confidence_score,\n    data.classifier?.confidence_score,\n    gradcam.confidence_score,\n    lime.confidence_score,\n    shap.confidence_score,\n    deeplift.confidence_score\n  ),\n\n  xai_condition: \"no_xai\",\n};\n\nconst originalBuffer = await this.helpers.getBinaryDataBuffer(\n  items.indexOf(binaryItem),\n  \"file\"\n);\n\nconst originalImageBase64 = originalBuffer.toString(\"base64\");\n\nconst originalMimeType =\n  binaryItem.binary.file.mimeType ||\n  binaryItem.binary.file.mime_type ||\n  \"image/jpeg\";\n\nconst prompt =\n  \"You are the vision-analysis stage of a plant disease classifier workflow.\\n\\n\" +\n\n  \"You are receiving:\\n\" +\n  \"The original uploaded plant leaf image.\\n\" +\n  \"The classifier prediction and classifier confidence.\\n\\n\" +\n\n  \"No XAI explanation images are provided in this condition.\\n\" +\n  \"Do not refer to Grad-CAM, LIME, SHAP, DeepLIFT, heatmaps, attribution maps, highlighted regions, or XAI alignment.\\n\\n\" +\n\n  \"Classifier result:\\n\" +\n  \"prediction=\" + summary.prediction + \"\\n\" +\n  \"confidence=\" + summary.confidence_score + \"\\n\\n\" +\n\n  \"Your job is only, and only, to describe the following:\\n\" +\n  \"The visible symptoms in the original leaf image.\\n\" +\n  \"Whether the visible image evidence appears visually consistent with the classifier prediction.\\n\\n\" +\n\n  \"The following are the field meanings in the json you will return, for which a format is provided below:\\n\" +\n  \"visible_symptoms: only the visible symptoms in the original leaf image.\\n\" +\n  \"model_decision_explanation: explain that no XAI outputs were provided, so the classifier's visual focus cannot be assessed; only image-level consistency with the classifier prediction can be discussed.\\n\" +\n  \"visual_support: low, moderate, or high visual support for the classifier prediction based only on the original image.\\n\\n\" +\n\n  \"Rules:\\n\" +\n  \"- Do not identify a disease.\\n\" +\n  \"- Do not suggest any treatments.\\n\" +\n  \"- Do not make any diagnostic hypotheses.\\n\" +\n  \"- Do not claim to understand the classifier's hidden internal reasoning.\\n\" +\n  \"- Do not say that the model definitely made the correct decision.\\n\" +\n  \"- Treat classifier confidence as model confidence, not certainty.\\n\" +\n  \"- Do not mention XAI methods or XAI images.\\n\" +\n  \"- Be concise.\\n\" +\n  \"- Return ONLY valid compact JSON.\\n\" +\n  \"- Do not wrap the answer in markdown.\\n\" +\n  \"- Do not include any text before or after the JSON object.\\n\" +\n  \"- Your first character must be { and your last character must be }.\\n\\n\" +\n\n  \"Return exactly this JSON:\\n\" +\n  \"{\\n\" +\n  \"  \\\"visible_symptoms\\\": \\\"\\\",\\n\" +\n  \"  \\\"model_decision_explanation\\\": \\\"\\\",\\n\" +\n  \"  \\\"visual_support\\\": \\\"low|moderate|high\\\"\\n\" +\n  \"}\";\n\nconst parts = [\n  {\n    text: prompt,\n  },\n  {\n    text: \"Image 1: Original uploaded plant leaf image.\",\n  },\n  {\n    inline_data: {\n      mime_type: originalMimeType,\n      data: originalImageBase64,\n    },\n  },\n];\n\nreturn [\n  {\n    json: {\n      ...summary,\n\n      xai_images_sent_to_gemini: [],\n      xai_image_count_sent_to_gemini: 0,\n\n      geminiBody: {\n        contents: [\n          {\n            parts,\n          },\n        ],\n      },\n    },\n    binary: binaryItem.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        496
+      ],
+      "id": "a3976bdb-a31d-46a1-81fd-42602d41dac6",
+      "name": "Build Gemini Vision Body"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nfunction findText(obj) {\n  if (!obj) return \"\";\n\n  const candidates = [];\n\n  if (Array.isArray(obj.candidates)) {\n    for (const candidate of obj.candidates) {\n      const parts = candidate?.content?.parts || [];\n\n      for (const part of parts) {\n        if (typeof part.text === \"string\") {\n          candidates.push(part.text);\n        }\n      }\n    }\n  }\n\n  if (typeof obj.text === \"string\") {\n    candidates.push(obj.text);\n  }\n\n  if (typeof obj.output === \"string\") {\n    candidates.push(obj.output);\n  }\n\n  return candidates.join(\"\\n\").trim();\n}\n\nfunction extractJsonObject(text) {\n  const value = String(text || \"\")\n    .replace(/```json/g, \"\")\n    .replace(/```/g, \"\")\n    .trim();\n\n  const start = value.indexOf(\"{\");\n  const end = value.lastIndexOf(\"}\");\n\n  if (start === -1 || end === -1 || end <= start) {\n    return value;\n  }\n\n  return value.slice(start, end + 1);\n}\n\nconst text = findText(item.json);\nconst cleaned = extractJsonObject(text);\n\nlet parsed;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (error) {\n  parsed = {\n    visible_symptoms: \"\",\n    model_decision_explanation: \"\",\n    visual_support: \"\",\n    parse_error: true,\n    raw_response: text,\n    parse_error_message: error.message,\n  };\n}\n\nconst previousItems = $items(\"Build Gemini Vision Body\");\nconst previous = previousItems?.[0]?.json || {};\n\nreturn [\n  {\n    json: {\n      ...previous,\n\n      model_provider: \"gemini\",\n\n      visible_symptoms: parsed.visible_symptoms || \"\",\n      model_decision_explanation: parsed.model_decision_explanation || \"\",\n      visual_support: parsed.visual_support || \"\",\n\n      gemini_vision_raw_text: text,\n      gemini_vision_parse_error: parsed.parse_error || false,\n      gemini_vision_parse_error_message: parsed.parse_error_message || \"\",\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        496
+      ],
+      "id": "8b3dd921-577c-4107-a424-3275a0680844",
+      "name": "Parse Gemini Vision Json"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\n\nconst baseItems = $items(\"Add Run Metadata\");\nconst baseMeta = baseItems?.[0]?.json || {};\n\nconst previousItems = $items(\"Parse Gemini Vision Json\");\nconst previous = previousItems?.[0]?.json || {};\n\nlet raw = item.json.output;\nlet data;\n\nconst visionModelDecisionExplanation =\n  previous.model_decision_explanation ||\n  item.json.model_decision_explanation ||\n  \"\";\n\nfunction escapeHtml(value) {\n  return String(value ?? \"\")\n    .replace(/&/g, \"&amp;\")\n    .replace(/</g, \"&lt;\")\n    .replace(/>/g, \"&gt;\")\n    .replace(/\"/g, \"&quot;\")\n    .replace(/'/g, \"&#039;\");\n}\n\nfunction extractJsonObject(text) {\n  const value = String(text || \"\")\n    .replace(/```json/g, \"\")\n    .replace(/```/g, \"\")\n    .trim();\n\n  const start = value.indexOf(\"{\");\n  const end = value.lastIndexOf(\"}\");\n\n  if (start === -1 || end === -1 || end <= start) {\n    return value;\n  }\n\n  return value.slice(start, end + 1);\n}\n\nfunction parsePossiblyWrappedJson(value) {\n  if (typeof value === \"object\" && value !== null) {\n    return value;\n  }\n\n  const candidate = extractJsonObject(value);\n  let parsed = JSON.parse(candidate);\n\n  if (typeof parsed === \"string\") {\n    parsed = JSON.parse(extractJsonObject(parsed));\n  }\n\n  return parsed;\n}\n\nfunction stripHeavyFields(obj) {\n  const clean = { ...(obj || {}) };\n\n  delete clean.xai_results;\n  delete clean.coordinates;\n  delete clean.coordinate_count;\n  delete clean.affected_coordinates;\n  delete clean.coords;\n  delete clean.raw_coordinates;\n  delete clean.xai_support;\n\n  return clean;\n}\n\ntry {\n  data = parsePossiblyWrappedJson(raw);\n} catch (error) {\n  const safeRaw = String(raw || \"\");\n\n  return [\n    {\n      json: {\n        ...stripHeavyFields(baseMeta),\n        ...stripHeavyFields(previous),\n        ...stripHeavyFields(item.json),\n\n        model_provider: \"gemini\",\n\n        readable_text: \"Could not parse AI response.\\n\\nRaw response:\\n\" + safeRaw,\n        readable_html: `<pre>${escapeHtml(safeRaw)}</pre>`,\n\n        parsed_json: null,\n        parse_error: true,\n        parse_error_message: error.message,\n\n        vision_model_decision_explanation: visionModelDecisionExplanation,\n      },\n      binary: item.binary,\n    },\n  ];\n}\n\nconst diagnoses = Array.isArray(data.top_three_possible_diagnoses)\n  ? data.top_three_possible_diagnoses\n  : [];\n\nfunction valueOrFallback(value, fallback = \"Not available\") {\n  if (value === undefined || value === null || value === \"\") return fallback;\n  return String(value);\n}\n\nconst diagnosisText =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = valueOrFallback(d.rank, index + 1);\n          const name = valueOrFallback(d.possible_diagnosis);\n          const confidence = valueOrFallback(d.confidence_level);\n          const reason = valueOrFallback(d.reason);\n          const caution = valueOrFallback(d.caution);\n\n          return `${rank}. ${name} (${confidence})\n   Reason: ${reason}\n   Caution: ${caution}`;\n        })\n        .join(\"\\n\\n\")\n    : \"Not available\";\n\nconst diagnosisHtml =\n  diagnoses.length > 0\n    ? diagnoses\n        .map((d, index) => {\n          const rank = escapeHtml(valueOrFallback(d.rank, index + 1));\n          const name = escapeHtml(valueOrFallback(d.possible_diagnosis));\n          const confidence = escapeHtml(valueOrFallback(d.confidence_level));\n          const reason = escapeHtml(valueOrFallback(d.reason));\n          const caution = escapeHtml(valueOrFallback(d.caution));\n\n          return `\n            <li style=\"margin-bottom: 12px;\">\n              <strong>${rank}. ${name}</strong>\n              <em>(${confidence})</em><br>\n              <strong>Reason:</strong> ${reason}<br>\n              <strong>Caution:</strong> ${caution}\n            </li>\n          `;\n        })\n        .join(\"\")\n    : `<li>Not available</li>`;\n\nconst readableText = `Plant Analysis Result\n\nSummary:\n${valueOrFallback(data.summary)}\n\nModel Decision Explanation:\n${valueOrFallback(data.model_decision_explanation)}\n\nTop Possible Diagnoses:\n${diagnosisText}\n\nLimitations:\n${valueOrFallback(data.limitations)}\n\nRecommended Next Steps:\n${valueOrFallback(data.recommended_next_steps)}`;\n\nconst readableHtml = `\n<div style=\"font-family: Arial, sans-serif; line-height: 1.5; max-width: 800px;\">\n  <h2>Plant Analysis Result</h2>\n\n  <h3>Summary</h3>\n  <p>${escapeHtml(valueOrFallback(data.summary))}</p>\n\n  <h3>Model Decision Explanation</h3>\n  <p>${escapeHtml(valueOrFallback(data.model_decision_explanation))}</p>\n\n  <h3>Top Possible Diagnoses</h3>\n  <ol>\n    ${diagnosisHtml}\n  </ol>\n\n  <h3>Limitations</h3>\n  <p>${escapeHtml(valueOrFallback(data.limitations))}</p>\n\n  <h3>Recommended Next Steps</h3>\n  <p>${escapeHtml(valueOrFallback(data.recommended_next_steps))}</p>\n</div>\n`;\n\ndelete data.xai_support;\n\nreturn [\n  {\n    json: {\n      ...stripHeavyFields(baseMeta),\n      ...stripHeavyFields(previous),\n      ...stripHeavyFields(item.json),\n      ...stripHeavyFields(data),\n\n      model_provider: \"gemini\",\n\n      vision_model_decision_explanation: visionModelDecisionExplanation,\n\n      readable_text: readableText,\n      readable_html: readableHtml,\n\n      parsed_json: stripHeavyFields(data),\n      parse_error: false,\n    },\n    binary: item.binary,\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        496
+      ],
+      "id": "6640424a-3b37-4e52-b437-6f6611c83fa8",
+      "name": "Format Gemini Final Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nfunction getProviderResult(provider) {\n  const item = items.find(\n    item => item.json?.model_provider === provider\n  );\n\n  if (!item) {\n    throw new Error(`Missing final ${provider} result.`);\n  }\n\n  if (\n    item.json.parse_error ||\n    !item.json.parsed_json ||\n    typeof item.json.parsed_json !== \"object\"\n  ) {\n    throw new Error(\n      `The final ${provider} response was not parsed successfully`\n    );\n  }\n\n  return item.json;\n}\n\nfunction extractProviderData(item) {\n  const data = item.parsed_json;\n  const diagnoses = Array.isArray(data.top_three_possible_diagnoses)\n    ? data.top_three_possible_diagnoses\n    : [];\n\n  return {\n    summary: data.summary ?? \"\",\n    model_decision_explanation:\n      data.model_decision_explanation ?? \"\",\n\n    diagnosis_1:\n      diagnoses[0]?.possible_diagnosis ?? \"\",\n    diagnosis_1_reason:\n      diagnoses[0]?.reason ?? \"\",\n\n    diagnosis_2:\n      diagnoses[1]?.possible_diagnosis ?? \"\",\n    diagnosis_2_reason:\n      diagnoses[1]?.reason ?? \"\",\n\n    diagnosis_3:\n      diagnoses[2]?.possible_diagnosis ?? \"\",\n    diagnosis_3_reason:\n      diagnoses[2]?.reason ?? \"\",\n\n    limitations:\n      data.limitations ?? \"\",\n\n    recommended_next_steps:\n      data.recommended_next_steps ?? \"\",\n  };\n}\n\nconst claudeItem = getProviderResult(\"claude\");\nconst geminiItem = getProviderResult(\"gemini\");\nconst openaiItem = getProviderResult(\"openai\");\n\nconst driveItem = items.find(\n  item => item.json?.original_image_drive_url !== undefined\n);\n\nif (!driveItem) {\n  throw new Error(\n    \"Missing original image Google Drive URL.\"\n  );\n}\n\nconst claude = extractProviderData(claudeItem);\nconst gemini = extractProviderData(geminiItem);\nconst openai = extractProviderData(openaiItem);\n\nconst drive = driveItem.json;\n\nconst timestamp =\n  claudeItem.run_timestamp ||\n  new Date().toISOString();\n\nconst runId =\n  claudeItem.run_id ||\n  $execution.id ||\n  \"\";\n\nconst imageName =\n  claudeItem.image_name ||\n  claudeItem.original_image_name ||\n  \"unknown_image\";\n\nconst classifierPrediction =\n  claudeItem.prediction ?? \"\";\n\nconst classifierConfidence =\n  claudeItem.confidence_score ?? \"\";\n\nconst summaryRow = {\n  sheet_target: \"summary\",\n  timestamp,\n  run_id: runId,\n  image_name: imageName,\n\n  original_image_drive_url:\n    drive.original_image_drive_url ?? \"\",\n\n  gradcam_drive_url: \"\",\n  lime_drive_url: \"\",\n  shap_inpaint_drive_url: \"\",\n  shap_blur_drive_url: \"\",\n  deeplift_drive_url: \"\",\n\n  classifier_prediction:\n    classifierPrediction,\n\n  classifier_confidence:\n    classifierConfidence,\n\n  claude_summary:\n    claude.summary,\n\n  claude_model_decision_explanation:\n    claude.model_decision_explanation,\n\n  claude_diagnosis_1:\n    claude.diagnosis_1,\n\n  claude_diagnosis_2:\n    claude.diagnosis_2,\n\n  claude_diagnosis_3:\n    claude.diagnosis_3,\n\n  claude_next_steps:\n    claude.recommended_next_steps,\n\n  gemini_summary:\n    gemini.summary,\n\n  gemini_model_decision_explanation:\n    gemini.model_decision_explanation,\n\n  gemini_diagnosis_1:\n    gemini.diagnosis_1,\n\n  gemini_diagnosis_2:\n    gemini.diagnosis_2,\n\n  gemini_diagnosis_3:\n    gemini.diagnosis_3,\n\n  gemini_next_steps:\n    gemini.recommended_next_steps,\n\n  openai_summary:\n    openai.summary,\n\n  openai_model_decision_explanation:\n    openai.model_decision_explanation,\n\n  openai_diagnosis_1:\n    openai.diagnosis_1,\n\n  openai_diagnosis_2:\n    openai.diagnosis_2,\n\n  openai_diagnosis_3:\n    openai.diagnosis_3,\n\n  openai_next_steps:\n    openai.recommended_next_steps,\n};\n\nconst fullRow = {\n  sheet_target: \"full\",\n  timestamp,\n  run_id: runId,\n  image_name: imageName,\n\n  original_image_drive_url:\n    drive.original_image_drive_url ?? \"\",\n\n  gradcam_drive_url: \"\",\n  lime_drive_url: \"\",\n  shap_inpaint_drive_url: \"\",\n  shap_blur_drive_url: \"\",\n  deeplift_drive_url: \"\",\n\n  classifier_prediction:\n    classifierPrediction,\n\n  classifier_confidence:\n    classifierConfidence,\n\n  claude_final_summary:\n    claude.summary,\n\n  claude_final_model_decision_explanation:\n    claude.model_decision_explanation,\n\n  claude_diagnosis_1:\n    claude.diagnosis_1,\n\n  claude_diagnosis_1_reason:\n    claude.diagnosis_1_reason,\n\n  claude_diagnosis_2:\n    claude.diagnosis_2,\n\n  claude_diagnosis_2_reason:\n    claude.diagnosis_2_reason,\n\n  claude_diagnosis_3:\n    claude.diagnosis_3,\n\n  claude_diagnosis_3_reason:\n    claude.diagnosis_3_reason,\n\n  claude_limitations:\n    claude.limitations,\n\n  claude_recommended_next_steps:\n    claude.recommended_next_steps,\n\n  gemini_final_summary:\n    gemini.summary,\n\n  gemini_final_model_decision_explanation:\n    gemini.model_decision_explanation,\n\n  gemini_diagnosis_1:\n    gemini.diagnosis_1,\n\n  gemini_diagnosis_1_reason:\n    gemini.diagnosis_1_reason,\n\n  gemini_diagnosis_2:\n    gemini.diagnosis_2,\n\n  gemini_diagnosis_2_reason:\n    gemini.diagnosis_2_reason,\n\n  gemini_diagnosis_3:\n    gemini.diagnosis_3,\n\n  gemini_diagnosis_3_reason:\n    gemini.diagnosis_3_reason,\n\n  gemini_limitations:\n    gemini.limitations,\n\n  gemini_recommended_next_steps:\n    gemini.recommended_next_steps,\n\n  openai_final_summary:\n    openai.summary,\n\n  openai_final_model_decision_explanation:\n    openai.model_decision_explanation,\n\n  openai_diagnosis_1:\n    openai.diagnosis_1,\n\n  openai_diagnosis_1_reason:\n    openai.diagnosis_1_reason,\n\n  openai_diagnosis_2:\n    openai.diagnosis_2,\n\n  openai_diagnosis_2_reason:\n    openai.diagnosis_2_reason,\n\n  openai_diagnosis_3:\n    openai.diagnosis_3,\n\n  openai_diagnosis_3_reason:\n    openai.diagnosis_3_reason,\n\n  openai_limitations:\n    openai.limitations,\n\n  openai_recommended_next_steps:\n    openai.recommended_next_steps,\n};\n\nreturn [\n  { json: summaryRow },\n  { json: fullRow },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3440,
+        720
+      ],
+      "id": "c1d521b4-88df-4e91-a985-dece42e5579e",
+      "name": "Format"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing a concise final explanation for a plant disease image analysis workflow.\n\nYou have:\nA Convolutional Neural Network classifier prediction and confidence score.\n A Gemini vision-model interpretation of the original leaf image.\nAccess to a plant disease diagnostic field guide through the plant_disease_guide1 tool.\n\nImportant Information:\nYou do not directly inspect the images in this stage.\nUse the visible symptoms as your visual evidence.\nBefore writing the final answer, you MUST call plant_disease_guide1 using a symptom-based query built from visible_symptoms to support you in your response.\nDo not answer before using the tool.\n\nInput:\nclassifier_prediction={{ $json.prediction }}\nclassifier_confidence={{ $json.confidence_score }}\nvisible_symptoms={{ $json.visible_symptoms }}\nmodel_decision_explanation={{ $json.model_decision_explanation }}\n\nTool query guidance:\nQuery plant_disease_guide1 using terms from visible_symptoms.\n\nFor summary write a short final explanation that describes and connects:\n- The classifier prediction and confidence.\n- The visible symptoms described by the vision model.\n- The retrieved field-guide information.\n\n\nRules:\n- Be concise and avoid repetition.\n- Keep answers to one sentence where possible. For the summary, model_decision_explanation and recommended_next_steps parts 2 sentences, or 3 if really neccesary is acceptable.\n- Return only valid JSON.\n- Do not wrap the answer in markdown.\n- Do not include any text before or after the JSON object.\n- Your first character must be { and your last character must be }.\n- Mention the parts where the field guide query helped answer.\n- Do not say the model is definitely correct.\n- Do not say the evidence confirms disease, illness, infection, diagnosis, or model correctness.\n- The top three diagnoses are possibilities, not final diagnoses.\n- If treatment is mentioned, justify it with a reason tied to the symptoms and the field guide tool.\n- Keep the final answer short.\n- Recommended next steps should be specific to the visible symptoms when possible.\n- Include concrete and practical action steps.\n- Do not make recommended_next_steps only to consult an expert; expert consultation can be included, but at least one concrete and practical step must also be included.\n\nReturn this exact JSON structure:\n{\n  \"summary\": \"\",\n  \"model_decision_explanation\": \"\",\n  \"top_three_possible_diagnoses\": [\n    {\n      \"rank\": 1,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 2,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    },\n    {\n      \"rank\": 3,\n      \"possible_diagnosis\": \"\",\n      \"confidence_level\": \"low|moderate|moderate_to_high\",\n      \"reason\": \"\",\n      \"caution\": \"\"\n    }\n  ],\n  \"limitations\": \"\",\n  \"recommended_next_steps\": \"\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1872,
+        288
+      ],
+      "id": "e79f5dc5-06a3-4acd-b56e-e6102bde6ab0",
+      "name": "Gemini AI Agent"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool before writing the final answer. Query it with the visible symptoms, such as leaf spots, chlorosis, necrosis, lesions, blight, yellowing, or margin damage, to retrieve plant disease diagnostic guidance, and make your hypothesis towards specific diseases with this guidance.",
+        "memoryKey": {
+          "__rl": true,
+          "value": "plant_disease_guide",
+          "mode": "list",
+          "cachedResultName": "plant_disease_guide"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreInMemory",
+      "typeVersion": 1.3,
+      "position": [
+        2064,
+        -48
+      ],
+      "id": "fc423642-846c-47de-8194-3b1eb5a10fda",
+      "name": "plant_disease_guide"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Vision Json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Add Run Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "plant_disease_guide1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request OpenAI Vision": {
+      "main": [
+        [
+          {
+            "node": "Parse OpenAI Vision JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build OpenAI Vision Body": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request OpenAI Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude Vision Body": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Claude Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Claude Vision": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Vision JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Vision JSON": {
+      "main": [
+        [
+          {
+            "node": "Claude AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Claude AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "plant_disease_guide",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Claude Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse OpenAI Vision JSON": {
+      "main": [
+        [
+          {
+            "node": "OpenAI AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "OpenAI AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "plant_disease_guide2",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format OpenAI Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "plant_disease_guide1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gemini AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "plant_disease_guide2": {
+      "ai_tool": [
+        [
+          {
+            "node": "OpenAI AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Run Metadata": {
+      "main": [
+        [
+          {
+            "node": "Prepare Drive Image Uploads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Claude Vision Body",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build OpenAI Vision Body",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Gemini Vision Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Drive Image Uploads": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Claude Final Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Claude Gemini Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Claude Gemini Outputs": {
+      "main": [
+        [
+          {
+            "node": "Merge All LLM Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format OpenAI Final Response": {
+      "main": [
+        [
+          {
+            "node": "Merge All LLM Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge All LLM Outputs": {
+      "main": [
+        [
+          {
+            "node": "Merge LLM Outputs And Drive URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Append Summary Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append Full Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Collect Drive URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Drive URLs": {
+      "main": [
+        [
+          {
+            "node": "Merge LLM Outputs And Drive URLs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge LLM Outputs And Drive URLs": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Vision Body": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Vision Json": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Gemini Final Response": {
+      "main": [
+        [
+          {
+            "node": "Merge Claude Gemini Outputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Format": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Gemini Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "plant_disease_guide": {
+      "ai_tool": [
+        [
+          {
+            "node": "Claude AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "23713ef2-67b8-458c-af55-22b051465a94",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8dd715efba981423e31b609c0941ecb804b6603764c74d445234defecd574ec8"
+  },
+  "id": "7bUvNbFYCJw2C2nX",
+  "tags": []
+}

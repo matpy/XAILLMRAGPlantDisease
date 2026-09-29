@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+python-multipart
+
+tensorflow==2.12.0
+keras==2.12.0
+numpy==1.23.5
+opencv-python-headless
+pillow
+matplotlib==3.4.3
+scikit-image
+scikit-learn==1.2.2
+lime==0.2.0.1
+shap==0.49.1
+pandas
+scipy
+quantus==0.6.0

@@ -1,0 +1,36 @@
+services:
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_LOG_LEVEL=info
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-files:/home/node/.n8n-files
+    depends_on:
+      - xai-service
+
+  xai-service:
+    build: ./xai-service
+    container_name: xai-service
+    ports:
+      - "8000:8000"
+
+  no-xai-service:
+    build:
+      context: ./xai-service
+    container_name: no-xai-service
+    command: uvicorn app_no_xai:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8001:8000"
+
+volumes:
+  n8n_data:
